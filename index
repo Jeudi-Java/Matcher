@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Certificate Verifier</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.1.62/pdf.min.js"></script>
+</head>
+<body>
+  <h2>Upload PDF Certificate to Verify</h2>
+  <input type="file" id="fileInput" accept="application/pdf"><br><br>
+  <button onclick="verifyCertificate()">Verify</button>
+  <p id="result"></p>
+
+  <script>
+    const template = "This certifies that [NAME] has completed the AI Fundamentals Course on May 2025.";
+
+    function extractTextFromPDF(file, callback) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const typedarray = new Uint8Array(event.target.result);
+        pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+          let text = '';
+          const numPages = pdf.numPages;
+          let pagePromises = [];
+          for (let i = 1; i <= numPages; i++) {
+            pagePromises.push(pdf.getPage(i).then(page => {
+              return page.getTextContent().then(textContent => {
+                return textContent.items.map(item => item.str).join(' ');
+              });
+            }));
+          }
+          Promise.all(pagePromises).then(pagesText => {
+            callback(pagesText.join(' '));
+          });
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function verifyCertificate() {
+      const file = document.getElementById('fileInput').files[0];
+      if (!file) {
+        document.getElementById('result').textContent = "Please upload a PDF file.";
+        return;
+      }
+
+      extractTextFromPDF(file, function(extractedText) {
+        const regex = new RegExp("^This certifies that (.+?) has completed the AI Fundamentals Course on May 2025\\.$");
+        const match = extractedText.match(regex);
+        if (match) {
+          const name = match[1];
+          document.getElementById('result').textContent = `Valid certificate for ${name}`;
+        } else {
+          document.getElementById('result').textContent = "Certificate does not match the template.";
+        }
+      });
+    }
+  </script>
+</body>
+</html>
